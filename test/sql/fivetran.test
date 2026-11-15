@@ -1,0 +1,657 @@
+# name: test/sql/fivetran.test
+# description: SQL tests for the fivetran worker against the offline Fivetran REST API replay server (test/mock_api/server.py)
+# group: [fivetran]
+
+require vgi
+
+require-env FIVETRAN_WORKER
+
+require-env FIVETRAN_FIXTURE_URL
+
+# httpfs + json read the replay server's /__requests log to assert what was pushed down.
+statement ok
+LOAD httpfs;
+
+statement ok
+LOAD json;
+
+statement ok
+ATTACH 'fivetran' (TYPE vgi, LOCATION '{FIVETRAN_WORKER}');
+
+# A request-log view: every request the worker sent, newest first by seq.
+statement ok
+CREATE MACRO reqs(p) AS TABLE SELECT * FROM read_json('{FIVETRAN_FIXTURE_URL}/__requests?path=' || p);
+
+# ---------------------------------------------------------------- secret errors
+
+statement error
+SELECT count(*) FROM fivetran.main.accounts;
+----
+<REGEX>:.*no fivetran secret.*
+
+statement ok
+CREATE SECRET ft_bad (TYPE fivetran, API_KEY 'test-key', API_SECRET 'wrong', BASE_URL '{FIVETRAN_FIXTURE_URL}');
+
+statement error
+SELECT count(*) FROM fivetran.main.accounts;
+----
+<REGEX>:.*HTTP 401.*AuthFailed.*
+
+statement ok
+DROP SECRET ft_bad;
+
+statement ok
+CREATE SECRET ft_insecure (TYPE fivetran, API_KEY 'k', API_SECRET 's', BASE_URL 'http://api.fivetran.example');
+
+statement error
+SELECT count(*) FROM fivetran.main.accounts;
+----
+<REGEX>:.*https.*
+
+statement ok
+DROP SECRET ft_insecure;
+
+statement ok
+CREATE SECRET ft_nosecret (TYPE fivetran, API_KEY 'k', BASE_URL '{FIVETRAN_FIXTURE_URL}');
+
+statement error
+SELECT count(*) FROM fivetran.main.accounts;
+----
+<REGEX>:.*API_SECRET.*
+
+statement ok
+DROP SECRET ft_nosecret;
+
+# Small pages so every listing exercises the externalized cursor.
+statement ok
+CREATE SECRET ft (TYPE fivetran, API_KEY 'test-key', API_SECRET 'test-secret', BASE_URL '{FIVETRAN_FIXTURE_URL}/v1', PAGE_SIZE 2);
+
+# ---------------------------------------------------------------------- account
+
+query TTTT
+SELECT id, account_name, user_id, system_key_id FROM fivetran.main.accounts;
+----
+acc_acme	Acme Analytics	u_ada	NULL
+
+# Rate limit: the first request to each path is a 429 with Retry-After; the worker
+# waited and retried. A single object is not paged (no limit/cursor sent).
+query TT
+SELECT status, query FROM reqs('/v1/account/info') WHERE status <> 401 ORDER BY seq;
+----
+429	{}
+200	{}
+
+# Every request carried the versioned JSON Accept header.
+query I
+SELECT count(*) FROM reqs('/v1/account/info') WHERE accept <> 'application/json;version=2';
+----
+0
+
+# ------------------------------------------------------------------------ users
+
+query TTTT
+SELECT id, email, active, user_type FROM fivetran.main.users ORDER BY id;
+----
+u_ada	ada@acme.example	true	REGULAR_USER
+u_alan	alan@acme.example	false	REGULAR_USER
+u_grace	grace@acme.example	true	REGULAR_USER
+u_kat	kat@acme.example	true	REGULAR_USER
+u_svc_ci	svc-ci@acme.example	true	SERVICE_ACCOUNT
+
+# 5 users at 2 per page: 3 successful pages, the later ones carrying the cursor.
+query II
+SELECT count(*), count(*) FILTER (WHERE query::JSON->>'cursor' IS NOT NULL) FROM reqs('/v1/users') WHERE status = 200;
+----
+3	2
+
+query I
+SELECT DISTINCT query::JSON->>'limit' FROM reqs('/v1/users') WHERE status = 200;
+----
+2
+
+# Pushdown: active = true, user_type and has_api_key become query parameters.
+query T
+SELECT email FROM fivetran.main.users WHERE active AND user_type = 'REGULAR_USER' AND has_api_key = false ORDER BY email;
+----
+grace@acme.example
+kat@acme.example
+
+query TTT
+SELECT query::JSON->>'active', query::JSON->>'user_type', query::JSON->>'has_api_key' FROM reqs('/v1/users') ORDER BY seq DESC LIMIT 1;
+----
+true	REGULAR_USER	false
+
+# active = false is not pushed (Fivetran's active=false is not "only suspended"); the SDK filters.
+query T
+SELECT email FROM fivetran.main.users WHERE NOT active;
+----
+alan@acme.example
+
+query T
+SELECT query::JSON->>'active' FROM reqs('/v1/users') ORDER BY seq DESC LIMIT 1;
+----
+NULL
+
+# Typed timestamps with microsecond precision.
+query T
+SELECT logged_in_at FROM fivetran.main.users WHERE id = 'u_ada';
+----
+2026-11-14 08:15:00+00
+
+# --------------------------------------------------------------- teams + access
+
+query TTT
+SELECT id, name, role FROM fivetran.main.teams ORDER BY id;
+----
+t_analytics	Analytics	NULL
+t_data_eng	Data Engineering	Account Reviewer
+
+query TTT
+SELECT team_id, user_id, role FROM fivetran.main.team_users ORDER BY ALL;
+----
+t_analytics	u_grace	Team Manager
+t_analytics	u_kat	Team Member
+t_data_eng	u_ada	Team Manager
+t_data_eng	u_alan	Team Member
+
+# team_id pushdown: only that team's path is read, and teams are not listed.
+statement ok
+CREATE TEMP TABLE teams_before AS SELECT count(*) AS n FROM reqs('/v1/teams');
+
+query TT
+SELECT group_id, role FROM fivetran.main.team_groups WHERE team_id = 't_data_eng' ORDER BY group_id;
+----
+g_lake	Destination Administrator
+g_warehouse	Destination Administrator
+
+query I
+SELECT (SELECT count(*) FROM reqs('/v1/teams')) - n FROM teams_before;
+----
+0
+
+query I
+SELECT count(*) FROM reqs('/v1/teams/t_analytics/groups');
+----
+0
+
+query TT
+SELECT team_id, connection_id FROM fivetran.main.team_connections ORDER BY ALL;
+----
+t_analytics	c_salesforce
+
+query TTT
+SELECT user_id, group_id, role FROM fivetran.main.user_groups WHERE user_id IN ('u_ada', 'u_grace') ORDER BY ALL;
+----
+u_ada	g_warehouse	Destination Administrator
+u_grace	g_lake	Destination Reviewer
+
+query TT
+SELECT user_id, connection_id FROM fivetran.main.user_connections ORDER BY ALL;
+----
+u_alan	c_postgres
+u_grace	c_hubspot
+
+# An unknown parent id is a 404 upstream → zero rows.
+query I
+SELECT count(*) FROM fivetran.main.user_groups WHERE user_id = 'u_nobody';
+----
+0
+
+query TTT
+SELECT id, name, created_at FROM fivetran.main.groups ORDER BY id;
+----
+g_lake	BigQuery Lake	2025-03-02 12:30:00+00
+g_warehouse	Snowflake Warehouse	2025-01-10 09:00:00+00
+
+query TT
+SELECT group_id, email FROM fivetran.main.group_users WHERE group_id = 'g_warehouse' AND active ORDER BY email;
+----
+g_warehouse	ada@acme.example
+g_warehouse	svc-ci@acme.example
+
+query T
+SELECT query::JSON->>'active' FROM reqs('/v1/groups/g_warehouse/users') ORDER BY seq DESC LIMIT 1;
+----
+true
+
+query TTTT
+SELECT id, service, region, setup_status FROM fivetran.main.destinations ORDER BY id;
+----
+g_lake	big_query	GCP_US_EAST4	BROKEN
+g_warehouse	snowflake	AWS_US_EAST_1	CONNECTED
+
+# ------------------------------------------------------------------ connections
+
+query TTTTTTT
+SELECT id, group_id, service, schema_name, setup_state, sync_state, update_state FROM fivetran.main.connections ORDER BY id;
+----
+c_hubspot	g_lake	hubspot	hubspot	broken	scheduled	delayed
+c_postgres	g_warehouse	postgres_rds	app_db	connected	scheduled	delayed
+c_salesforce	g_warehouse	salesforce	salesforce	connected	scheduled	on_schedule
+c_sheets	g_lake	google_sheets	finance_sheets	connected	syncing	on_schedule
+c_stripe	g_warehouse	stripe	stripe	connected	paused	on_schedule
+
+# Status details: tasks/warnings as LIST<STRUCT>, typed integers and timestamps.
+query TTT
+SELECT id, t.code, t.message FROM fivetran.main.connections, unnest(tasks) AS u(t) ORDER BY id;
+----
+c_hubspot	reconnect	Reauthorize HubSpot
+
+query TT
+SELECT id, w.code FROM fivetran.main.connections, unnest(warnings) AS u(w);
+----
+c_postgres	replication_slot_lag
+
+query TIT
+SELECT id, sync_frequency, failed_at FROM fivetran.main.connections WHERE failed_at > coalesce(succeeded_at, TIMESTAMPTZ '1970-01-01') ORDER BY id;
+----
+c_hubspot	60	2026-11-14 20:00:00+00
+c_postgres	15	2026-11-14 23:10:00+00
+
+query T
+SELECT typeof(sync_frequency) || ',' || typeof(paused) || ',' || typeof(succeeded_at) || ',' || typeof(tasks) FROM fivetran.main.connections LIMIT 1;
+----
+INTEGER,BOOLEAN,TIMESTAMP WITH TIME ZONE,STRUCT(code VARCHAR, message VARCHAR, details VARCHAR)[]
+
+# Secret-looking config values are masked, even when upstream did not mask them.
+query TT
+SELECT id, config->>'oauth_token' FROM fivetran.main.connections WHERE id = 'c_salesforce';
+----
+c_salesforce	******
+
+query T
+SELECT config->>'api_key' FROM fivetran.main.connections WHERE id = 'c_stripe';
+----
+******
+
+query T
+SELECT config->>'host' FROM fivetran.main.connections WHERE id = 'c_postgres';
+----
+db.acme.internal
+
+query T
+SELECT url FROM fivetran.main.connections WHERE id = 'c_sheets';
+----
+https://fivetran.com/dashboard/connections/c_sheets/status
+
+# id = pushes down to GET /v1/connections/{id} (not paged).
+query I
+SELECT count(*) FROM reqs('/v1/connections/c_salesforce') WHERE status = 200 AND query = '{}';
+----
+1
+
+query I
+SELECT count(*) FROM fivetran.main.connections WHERE id = 'c_missing';
+----
+0
+
+# group_id IN (…) → one listing per group; schema_name = → schema.
+query T
+SELECT id FROM fivetran.main.connections WHERE group_id IN ('g_lake') AND schema_name = 'hubspot';
+----
+c_hubspot
+
+query TT
+SELECT query::JSON->>'group_id', query::JSON->>'schema' FROM reqs('/v1/connections') ORDER BY seq DESC LIMIT 1;
+----
+g_lake	hubspot
+
+# service has no API filter: applied locally, and the listing is unfiltered.
+query T
+SELECT id FROM fivetran.main.connections WHERE service = 'stripe';
+----
+c_stripe
+
+query T
+SELECT query FROM reqs('/v1/connections') ORDER BY seq DESC LIMIT 1;
+----
+<REGEX>:\{"cursor": ".*", "limit": "2"\}
+
+# ----------------------------------------------------------- schema config
+
+query TTTII
+SELECT connection_id, schema_name, enabled, table_count, enabled_table_count FROM fivetran.main.connection_schemas ORDER BY ALL;
+----
+c_postgres	audit	false	1	0
+c_postgres	public	true	2	2
+c_salesforce	salesforce	true	3	2
+c_sheets	finance_sheets	true	1	1
+c_stripe	stripe	true	1	1
+
+query TTT
+SELECT connection_id, schema_name, table_name FROM fivetran.main.connection_tables WHERE NOT enabled ORDER BY ALL;
+----
+c_postgres	audit	events
+c_salesforce	salesforce	login_history
+
+query TTTT
+SELECT table_name, sync_mode, patch_allowed, patch_reason_code FROM fivetran.main.connection_tables WHERE connection_id = 'c_stripe';
+----
+charge	SOFT_DELETE	false	SYSTEM_TABLE
+
+query TTT
+SELECT connection_id, table_name, column_name FROM fivetran.main.connection_columns WHERE hashed ORDER BY ALL;
+----
+c_postgres	users	email
+c_salesforce	account	phone
+c_salesforce	contact	email
+
+query TTT
+SELECT connection_id, table_name, column_name FROM fivetran.main.connection_columns WHERE NOT enabled ORDER BY ALL;
+----
+c_postgres	orders	card_number
+c_salesforce	contact	ssn__c
+
+# connection_id pushdown: exactly the named connections' schemas are read, no listing.
+statement ok
+CREATE TEMP TABLE conn_before AS SELECT count(*) AS n FROM reqs('/v1/connections');
+
+statement ok
+CREATE TEMP TABLE pg_schema_before AS SELECT count(*) AS n FROM reqs('/v1/connections/c_postgres/schemas');
+
+query II
+SELECT count(*), count(*) FILTER (WHERE is_primary_key) FROM fivetran.main.connection_columns WHERE connection_id = 'c_postgres';
+----
+4	2
+
+query II
+SELECT (SELECT count(*) FROM reqs('/v1/connections')) - c.n, (SELECT count(*) FROM reqs('/v1/connections/c_postgres/schemas')) - p.n FROM conn_before c, pg_schema_before p;
+----
+0	1
+
+# --------------------------------------------- state, errors and warnings
+
+query TT
+SELECT connection_id, state->>'lsn' FROM fivetran.main.connection_states WHERE connection_id = 'c_postgres';
+----
+c_postgres	0/16B3748
+
+query T
+SELECT connection_id FROM fivetran.main.connection_states WHERE state IS NULL;
+----
+c_hubspot
+
+query TTT
+SELECT connection_id, type, title FROM fivetran.main.connection_errors ORDER BY ALL;
+----
+c_hubspot	AUTH_ERROR	OAuth token revoked
+c_postgres	SYNC_ERROR	Replication slot missing
+
+query TTTT
+SELECT connection_id, schema_name, table_name, code FROM fivetran.main.connection_warnings ORDER BY ALL;
+----
+c_postgres	public	orders	missing_primary_key
+c_postgres	public	orders	replication_slot_lag
+c_salesforce	salesforce	contact	column_type_change
+
+# The warnings endpoint is not paged: no limit/cursor is sent.
+query I
+SELECT count(*) FROM reqs('/v1/connections/c_salesforce/warnings') WHERE query <> '{}';
+----
+0
+
+# ------------------------------------------------------------------ syncs (sync history)
+
+# The last 7 days of every connection; the 10-day-old sync is outside the API's window.
+query TTTT
+SELECT connection_id, id, status, reason FROM fivetran.main.syncs ORDER BY connection_id, id;
+----
+c_postgres	pg-s1	FAILURE	Replication slot is missing
+c_postgres	pg-s2	CANCELED	Canceled by user
+c_postgres	pg-s3	INCOMPLETE	Sync was interrupted
+c_postgres	pg-s4	RESCHEDULED	Source rate limit
+c_postgres	pg-s5	COMPLETED	NULL
+c_salesforce	sf-s1	COMPLETED	NULL
+c_salesforce	sf-s2	COMPLETED	NULL
+c_salesforce	sf-s3	COMPLETED	NULL
+c_salesforce	sf-s4	FAILURE	Salesforce API limit exceeded
+c_sheets	gs-s1	INCOMPLETE	NULL
+c_sheets	gs-s2	COMPLETED	NULL
+c_stripe	st-s1	PAUSED	Connection paused
+
+query TRRR
+SELECT id, duration_seconds, extract_volume, load_volume FROM fivetran.main.syncs WHERE connection_id = 'c_salesforce' ORDER BY started_at DESC LIMIT 2;
+----
+sf-s1	480.0	1200.0	1180.0
+sf-s2	600.0	900.0	900.0
+
+query TT
+SELECT id, ended_at IS NULL FROM fivetran.main.syncs WHERE connection_id = 'c_sheets' ORDER BY id;
+----
+gs-s1	true
+gs-s2	false
+
+# Without a started_at filter the request asks for (just under) the full 7 days.
+query I
+SELECT epoch_ms((query::JSON->>'end_time')::TIMESTAMPTZ) / 1000 - epoch_ms((query::JSON->>'start_time')::TIMESTAMPTZ) / 1000 <= 7 * 86400 FROM reqs('/v1/connections/c_sheets/sync-history') WHERE status = 200 ORDER BY seq DESC LIMIT 1;
+----
+true
+
+# A started_at range becomes the start_time / end_time window. (Relative times use
+# epoch_ms(...) / 1000: haybarn-unittest 2.0.0rc11 without ICU mis-binds epoch(now()) - n.)
+query T
+SELECT id FROM fivetran.main.syncs WHERE connection_id = 'c_postgres' AND started_at >= to_timestamp(epoch_ms(now()) / 1000 - 70 * 60) ORDER BY id;
+----
+pg-s1
+pg-s2
+
+query I
+SELECT epoch_ms((query::JSON->>'start_time')::TIMESTAMPTZ) / 1000 BETWEEN epoch_ms(now()) / 1000 - 75 * 60 AND epoch_ms(now()) / 1000 - 65 * 60 FROM reqs('/v1/connections/c_postgres/sync-history') ORDER BY seq DESC LIMIT 1;
+----
+true
+
+# A window entirely older than 7 days makes no sync-history request at all.
+statement ok
+CREATE TEMP TABLE sh_before AS SELECT count(*) AS n FROM reqs('/v1/connections/c_salesforce/sync-history');
+
+query I
+SELECT count(*) FROM fivetran.main.syncs WHERE connection_id = 'c_salesforce' AND started_at < TIMESTAMPTZ '2020-01-01 00:00:00+00';
+----
+0
+
+query I
+SELECT (SELECT count(*) FROM reqs('/v1/connections/c_salesforce/sync-history')) - n FROM sh_before;
+----
+0
+
+# ---------------------------------------------------------------- unified.runs
+
+query TTTT
+SELECT pipeline, run_id, status, raw_status FROM fivetran.unified.runs ORDER BY pipeline, run_id;
+----
+app_db	pg-s1	failed	FAILURE
+app_db	pg-s2	cancelled	CANCELED
+app_db	pg-s3	failed	INCOMPLETE
+app_db	pg-s4	skipped	RESCHEDULED
+app_db	pg-s5	success	COMPLETED
+finance_sheets	gs-s1	running	INCOMPLETE
+finance_sheets	gs-s2	success	COMPLETED
+salesforce	sf-s1	success	COMPLETED
+salesforce	sf-s2	success	COMPLETED
+salesforce	sf-s3	success	COMPLETED
+salesforce	sf-s4	failed	FAILURE
+stripe	st-s1	cancelled	PAUSED
+
+query TTTT
+SELECT DISTINCT orchestrator, trigger, queued_at, url FROM fivetran.unified.runs WHERE pipeline = 'stripe';
+----
+fivetran	NULL	NULL	https://fivetran.com/dashboard/connections/c_stripe/status
+
+# pipeline = pushes down as the connection listing's schema parameter.
+query T
+SELECT query::JSON->>'schema' FROM reqs('/v1/connections') ORDER BY seq DESC LIMIT 1;
+----
+stripe
+
+# The exact shared column set and types, so it UNIONs with other orchestrators.
+query TT
+SELECT column_name, data_type FROM information_schema.columns WHERE table_catalog = 'fivetran' AND table_schema = 'unified' AND table_name = 'runs' ORDER BY ordinal_position;
+----
+orchestrator	VARCHAR
+run_id	VARCHAR
+pipeline	VARCHAR
+status	VARCHAR
+raw_status	VARCHAR
+trigger	VARCHAR
+queued_at	TIMESTAMP WITH TIME ZONE
+started_at	TIMESTAMP WITH TIME ZONE
+ended_at	TIMESTAMP WITH TIME ZONE
+duration_seconds	DOUBLE
+url	VARCHAR
+
+query TTT
+SELECT column_name, is_nullable, data_type FROM information_schema.columns WHERE table_catalog = 'fivetran' AND table_schema = 'unified' AND table_name = 'runs' AND column_name IN ('orchestrator', 'run_id', 'status', 'pipeline') ORDER BY column_name;
+----
+orchestrator	NO	VARCHAR
+pipeline	YES	VARCHAR
+run_id	NO	VARCHAR
+status	NO	VARCHAR
+
+# ------------------------------------------------------------------- webhooks
+
+query TTTTT
+SELECT id, type, group_id, active, has_secret FROM fivetran.main.webhooks ORDER BY id;
+----
+wh_account	account	NULL	true	true
+wh_lake	group	g_lake	false	false
+
+query I
+SELECT count(*) FROM information_schema.columns WHERE table_catalog = 'fivetran' AND table_name IN ('webhooks', 'system_keys') AND column_name IN ('secret', 'key');
+----
+0
+
+query T
+SELECT id FROM fivetran.main.webhooks WHERE list_contains(events, 'connection_failure');
+----
+wh_lake
+
+# ------------------------------------------------------------- infrastructure
+
+query TTTTI
+SELECT id, display_name, group_id, deployment_type, len(usage) FROM fivetran.main.hybrid_deployment_agents WHERE group_id = 'g_lake';
+----
+hda_onprem	onprem-k8s	g_lake	KUBERNETES	1
+
+query T
+SELECT query::JSON->>'groupId' FROM reqs('/v1/hybrid-deployment-agents') ORDER BY seq DESC LIMIT 1;
+----
+g_lake
+
+query TT
+SELECT id, usage[1].connection_id FROM fivetran.main.hybrid_deployment_agents WHERE online;
+----
+hda_onprem	c_sheets
+
+query TTT
+SELECT id, cloud_provider, link_state FROM fivetran.main.private_links;
+----
+pl_gcp	GCP	OK
+
+query TTI
+SELECT id, status, connector_count FROM fivetran.main.proxy_agents;
+----
+pa_dc1	CONNECTED	1
+
+query TTT
+SELECT id, service, setup_state FROM fivetran.main.log_services;
+----
+log_datadog	datadog	connected
+
+# ------------------------------------------------------------ transformations
+
+query TTTTT
+SELECT id, type, status, project_id, schedule_type FROM fivetran.main.transformations ORDER BY id;
+----
+tr_dbt_daily	DBT_CORE	SUCCEEDED	tp_main	TIME_OF_DAY
+tr_qs_salesforce	QUICKSTART	FAILED	NULL	INTEGRATED
+
+query T
+SELECT unnest(output_model_names) AS m FROM fivetran.main.transformations WHERE type = 'DBT_CORE' ORDER BY m;
+----
+dim_customers
+fct_orders
+
+query T
+SELECT query::JSON->>'type' FROM reqs('/v1/transformations') ORDER BY seq DESC LIMIT 1;
+----
+DBT_CORE
+
+query T
+SELECT id FROM fivetran.main.transformations WHERE project_id = 'tp_main';
+----
+tr_dbt_daily
+
+query T
+SELECT query::JSON->>'project_id' FROM reqs('/v1/transformations') ORDER BY seq DESC LIMIT 1;
+----
+tp_main
+
+query TT
+SELECT id, connection_ids FROM fivetran.main.transformations WHERE smart_syncing;
+----
+tr_qs_salesforce	[c_salesforce]
+
+query TTT
+SELECT id, type, group_id FROM fivetran.main.transformation_projects;
+----
+tp_main	DBT_CORE	g_warehouse
+
+# ---------------------------------------------------- roles, keys, catalogue
+
+query T
+SELECT name FROM fivetran.main.roles WHERE list_contains(scope, 'TEAM') ORDER BY name;
+----
+Team Manager
+Team Member
+
+query TT
+SELECT name, replacement_role_name FROM fivetran.main.roles WHERE is_deprecated;
+----
+Legacy Billing	Account Billing
+
+query TTT
+SELECT name, p.resource_type, p.access_level FROM fivetran.main.system_keys, unnest(permissions) AS u(p) ORDER BY ALL;
+----
+terraform	ACCOUNT	READ
+terraform	CONNECTOR	MANAGE
+
+query TT
+SELECT ct.name, count(*) FROM fivetran.main.connections c JOIN fivetran.main.connector_types ct ON ct.id = c.service WHERE ct.type = 'Database' GROUP BY ct.name;
+----
+Amazon RDS for PostgreSQL	1
+
+query T
+SELECT id FROM fivetran.main.connector_types WHERE list_contains(supported_features, 'COLUMN_HASHING') ORDER BY id;
+----
+postgres_rds
+salesforce
+
+# ------------------------------------------------------------- constraints
+
+# Attested keys reach DuckDB: ids are NOT NULL, per-connection tables reference connections.
+query TT
+SELECT column_name, is_nullable FROM information_schema.columns WHERE table_catalog = 'fivetran' AND table_name = 'syncs' AND column_name IN ('connection_id', 'id', 'status') ORDER BY column_name;
+----
+connection_id	NO
+id	NO
+status	YES
+
+query T
+SELECT constraint_type FROM duckdb_constraints() WHERE database_name = 'fivetran' AND table_name = 'syncs' AND constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY') ORDER BY 1;
+----
+FOREIGN KEY
+PRIMARY KEY
+
+# --------------------------------------------------------------- read-only + hygiene
+
+# Every request was a GET with valid Basic auth from the secret above, and every path
+# was rate-limited exactly once (then retried successfully).
+query I
+SELECT count(*) FROM reqs('') WHERE status NOT IN (200, 401, 404, 429);
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT path FROM reqs('') WHERE status = 429 GROUP BY path HAVING count(*) > 1);
+----
+0

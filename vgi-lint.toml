@@ -1,0 +1,38 @@
+# vgi-lint settings for this worker: https://github.com/Query-farm/vgi-lint-check
+# `make lint-explain`, `vgi-lint lint` in this directory, and CI's metadata job all
+# read this file. Look up a rule with `vgi-lint explain VGI123`; print the metadata tag
+# contract with `vgi-lint spec`.
+
+# The worker to attach, relative to this directory. Build it first with `make build`.
+location = "bin/vgi-fivetran-worker"
+
+# Gate at "info": zero findings of any severity.
+fail_on = "info"
+
+# Waive a finding only with a kind and a reason, so the waiver can be audited:
+#   domain-exemption  permanent and legitimate for this worker
+#   deferred          a real defect you will fix; add expires = "YYYY-MM-DD"
+#   timing            slow or flaky because of the environment, not the metadata
+#   tooling-bug       the linter is wrong; report it upstream
+ignore = [
+  { code = "VGI809", kind = "domain-exemption", reason = "patch_reason_code, has_api_key and created_by_id are attributes repeated across tables (schema-config levels, user views, transformation objects), not join keys between those tables" },
+]
+
+# Fivetran's errors and per-table warnings carry no identifier, and no column set is
+# guaranteed unique (the same error can be raised twice), so no primary key is attested.
+[per_object."fivetran.main.connection_errors"]
+ignore = [{ code = "VGI807", kind = "domain-exemption", reason = "the API's connection errors have no id and no unique column set" }]
+
+[per_object."fivetran.main.connection_warnings"]
+ignore = [{ code = "VGI807", kind = "domain-exemption", reason = "the API's table warnings have no id and no unique column set" }]
+
+# Adopting the gate on a worker that already has findings? Record them once with
+#   vgi-lint lint --baseline vgi-lint-baseline --update-baseline
+# and uncomment the next line. Only new findings fail after that.
+# baseline = "vgi-lint-baseline"
+
+
+# unified.runs has the column set every orchestrator worker shares; run_id is that table's
+# own primary key, not a reference to another table, and it cannot be renamed.
+[per_object."fivetran.unified.runs"]
+ignore = [{ code = "VGI808", kind = "domain-exemption", reason = "run_id is the shared unified.runs shape's own primary key, not a reference" }]

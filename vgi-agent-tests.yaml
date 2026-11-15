@@ -1,0 +1,103 @@
+# Private graders for the public vgi.agent_test_tasks in the worker's catalog metadata.
+# `vgi-lint lint --ai` runs an agent on each prompt and grades it (VGI920).
+#
+# Every fivetran table needs a `fivetran` secret pointing at a Fivetran account (the offline
+# replay account in test/mock_api/server.py works too: API_KEY 'test-key', API_SECRET
+# 'test-secret', BASE_URL 'http://127.0.0.1:<port>'). The data is stable between the agent's
+# run and the reference run, so every task compares against a reference query.
+tasks:
+  - name: broken_connections
+    reference_sql: SELECT schema_name FROM fivetran.main.connections WHERE setup_state = 'broken' ORDER BY schema_name
+  - name: paused_connections
+    reference_sql: SELECT schema_name FROM fivetran.main.connections WHERE paused ORDER BY schema_name
+  - name: open_tasks
+    reference_sql: >-
+      SELECT t.code, t.message FROM fivetran.main.connections, unnest(tasks) AS u(t) ORDER BY ALL
+  - name: connections_per_group
+    reference_sql: >-
+      SELECT g.name, count(c.id) AS connections FROM fivetran.main.groups g
+      LEFT JOIN fivetran.main.connections c ON c.group_id = g.id GROUP BY g.name ORDER BY g.name
+  - name: hashed_columns
+    reference_sql: >-
+      SELECT table_name, column_name FROM fivetran.main.connection_columns
+      WHERE connection_id = (SELECT id FROM fivetran.main.connections WHERE service = 'salesforce') AND hashed
+      ORDER BY ALL
+  - name: blocked_tables
+    reference_sql: >-
+      SELECT connection_id, schema_name, table_name FROM fivetran.main.connection_tables WHERE NOT enabled ORDER BY ALL
+  - name: failed_syncs
+    reference_sql: >-
+      SELECT connection_id, count(*) AS failures FROM fivetran.main.syncs WHERE status = 'FAILURE'
+      GROUP BY connection_id ORDER BY connection_id
+  - name: webhook_events
+    reference_sql: >-
+      SELECT id, url FROM fivetran.main.webhooks WHERE active AND list_contains(events, 'sync_end') ORDER BY id
+  - name: suspended_users
+    reference_sql: SELECT email FROM fivetran.main.users WHERE NOT active ORDER BY email
+  - name: team_members
+    reference_sql: >-
+      SELECT u.email FROM fivetran.main.team_users m JOIN fivetran.main.teams t ON t.id = m.team_id
+      JOIN fivetran.main.users u ON u.id = m.user_id WHERE t.name = 'Data Engineering' ORDER BY u.email
+  - name: dbt_models
+    reference_sql: >-
+      SELECT DISTINCT unnest(output_model_names) AS model FROM fivetran.main.transformations
+      WHERE type = 'DBT_CORE' ORDER BY model
+  - name: offline_agents
+    reference_sql: SELECT display_name FROM fivetran.main.hybrid_deployment_agents WHERE NOT online ORDER BY display_name
+  - name: account_name
+    reference_sql: >-
+      SELECT id, account_name FROM fivetran.main.accounts
+  - name: connection_error_titles
+    reference_sql: >-
+      SELECT connection_id, title FROM fivetran.main.connection_errors ORDER BY created_at DESC
+  - name: disabled_schemas
+    reference_sql: >-
+      SELECT connection_id, schema_name FROM fivetran.main.connection_schemas WHERE NOT enabled ORDER BY ALL
+  - name: postgres_lsn
+    reference_sql: >-
+      SELECT state->>'lsn' AS lsn FROM fivetran.main.connection_states WHERE connection_id = 'c_postgres'
+  - name: warning_codes
+    reference_sql: >-
+      SELECT code, count(*) AS tables FROM fivetran.main.connection_warnings GROUP BY code ORDER BY code
+  - name: database_sources
+    reference_sql: >-
+      SELECT name FROM fivetran.main.connector_types WHERE type = 'Database' ORDER BY name
+  - name: broken_destinations
+    reference_sql: >-
+      SELECT id, service FROM fivetran.main.destinations WHERE setup_status <> 'CONNECTED' ORDER BY id
+  - name: warehouse_users
+    reference_sql: >-
+      SELECT gu.email FROM fivetran.main.group_users gu JOIN fivetran.main.groups g ON g.id = gu.group_id WHERE g.name = 'Snowflake Warehouse' ORDER BY gu.email
+  - name: log_destinations
+    reference_sql: >-
+      SELECT service FROM fivetran.main.log_services WHERE enabled ORDER BY service
+  - name: private_link_states
+    reference_sql: >-
+      SELECT name, link_state FROM fivetran.main.private_links ORDER BY name
+  - name: proxy_status
+    reference_sql: >-
+      SELECT display_name, status FROM fivetran.main.proxy_agents ORDER BY display_name
+  - name: deprecated_roles
+    reference_sql: >-
+      SELECT name, replacement_role_name FROM fivetran.main.roles WHERE is_deprecated ORDER BY name
+  - name: manage_keys
+    reference_sql: >-
+      SELECT DISTINCT name FROM fivetran.main.system_keys, unnest(permissions) AS u(p) WHERE p.access_level = 'MANAGE' ORDER BY name
+  - name: team_connection_grants
+    reference_sql: >-
+      SELECT tc.connection_id, tc.role FROM fivetran.main.team_connections tc JOIN fivetran.main.teams t ON t.id = tc.team_id WHERE t.name = 'Analytics' ORDER BY tc.connection_id
+  - name: team_destination_roles
+    reference_sql: >-
+      SELECT tg.group_id, tg.role FROM fivetran.main.team_groups tg JOIN fivetran.main.teams t ON t.id = tg.team_id WHERE t.name = 'Data Engineering' ORDER BY tg.group_id
+  - name: project_groups
+    reference_sql: >-
+      SELECT id, group_id FROM fivetran.main.transformation_projects ORDER BY id
+  - name: user_connection_roles
+    reference_sql: >-
+      SELECT uc.connection_id, uc.role FROM fivetran.main.user_connections uc JOIN fivetran.main.users u ON u.id = uc.user_id WHERE u.email = 'grace@acme.example' ORDER BY uc.connection_id
+  - name: user_destination_roles
+    reference_sql: >-
+      SELECT ug.group_id, ug.role FROM fivetran.main.user_groups ug JOIN fivetran.main.users u ON u.id = ug.user_id WHERE u.email = 'ada@acme.example' ORDER BY ug.group_id
+  - name: unified_failed_runs
+    reference_sql: >-
+      SELECT pipeline, count(*) AS failed FROM fivetran.unified.runs WHERE status = 'failed' GROUP BY pipeline ORDER BY pipeline

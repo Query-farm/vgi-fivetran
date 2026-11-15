@@ -1,0 +1,434 @@
+{
+  "_comment": "A hand-built Fivetran account in the documented REST API v1 response shapes (https://fivetran.com/docs/rest-api/api-reference). Served by test/mock_api/server.py. sync_history start/end are minutes before the server started, so the 7-day window never ages out.",
+  "account": {
+    "account_id": "acc_acme",
+    "account_name": "Acme Analytics",
+    "user_id": "u_ada",
+    "system_key_id": null
+  },
+  "groups": [
+    { "id": "g_warehouse", "name": "Snowflake Warehouse", "created_at": "2025-01-10T09:00:00.000000Z" },
+    { "id": "g_lake", "name": "BigQuery Lake", "created_at": "2025-03-02T12:30:00.000000Z" }
+  ],
+  "destinations": [
+    {
+      "id": "g_warehouse",
+      "service": "snowflake",
+      "region": "AWS_US_EAST_1",
+      "group_id": "g_warehouse",
+      "time_zone_offset": "-5",
+      "setup_status": "CONNECTED",
+      "daylight_saving_time_enabled": true,
+      "private_link_id": null,
+      "networking_method": "Directly",
+      "local_processing_agent_id": null,
+      "hybrid_deployment_agent_id": null,
+      "proxy_agent_id": null,
+      "external_secrets_manager_id": null
+    },
+    {
+      "id": "g_lake",
+      "service": "big_query",
+      "region": "GCP_US_EAST4",
+      "group_id": "g_lake",
+      "time_zone_offset": "0",
+      "setup_status": "BROKEN",
+      "daylight_saving_time_enabled": false,
+      "private_link_id": "pl_gcp",
+      "networking_method": "PrivateLink",
+      "local_processing_agent_id": null,
+      "hybrid_deployment_agent_id": "hda_onprem",
+      "proxy_agent_id": null,
+      "external_secrets_manager_id": null
+    }
+  ],
+  "users": [
+    {
+      "id": "u_ada", "email": "ada@acme.example", "given_name": "Ada", "family_name": "Lovelace",
+      "verified": true, "invited": false, "picture": null, "phone": null, "role": "Account Administrator",
+      "active": true, "logged_in_at": "2026-11-14T08:15:00.000000Z", "created_at": "2025-01-10T09:00:00.000000Z",
+      "user_type": "REGULAR_USER", "has_api_key": true
+    },
+    {
+      "id": "u_grace", "email": "grace@acme.example", "given_name": "Grace", "family_name": "Hopper",
+      "verified": true, "invited": false, "picture": null, "phone": "+1 555 0100", "role": "Account Reviewer",
+      "active": true, "logged_in_at": "2026-11-12T17:40:00.000000Z", "created_at": "2025-02-01T10:00:00.000000Z",
+      "user_type": "REGULAR_USER", "has_api_key": false
+    },
+    {
+      "id": "u_alan", "email": "alan@acme.example", "given_name": "Alan", "family_name": "Turing",
+      "verified": true, "invited": false, "picture": null, "phone": null, "role": null,
+      "active": false, "logged_in_at": "2025-08-01T09:00:00.000000Z", "created_at": "2025-02-01T10:05:00.000000Z",
+      "user_type": "REGULAR_USER", "has_api_key": false
+    },
+    {
+      "id": "u_kat", "email": "kat@acme.example", "given_name": "Katherine", "family_name": "Johnson",
+      "verified": false, "invited": true, "picture": null, "phone": null, "role": null,
+      "active": true, "logged_in_at": null, "created_at": "2026-11-01T11:00:00.000000Z",
+      "user_type": "REGULAR_USER", "has_api_key": false
+    },
+    {
+      "id": "u_svc_ci", "email": "svc-ci@acme.example", "given_name": "CI", "family_name": "Bot",
+      "verified": true, "invited": false, "picture": null, "phone": null, "role": "Account Administrator",
+      "active": true, "logged_in_at": null, "created_at": "2025-06-15T00:00:00.000000Z",
+      "user_type": "SERVICE_ACCOUNT", "has_api_key": true
+    }
+  ],
+  "teams": [
+    { "id": "t_data_eng", "name": "Data Engineering", "description": "Owns ingestion", "role": "Account Reviewer" },
+    { "id": "t_analytics", "name": "Analytics", "description": "Dashboards and models", "role": null }
+  ],
+  "team_users": {
+    "t_data_eng": [
+      { "user_id": "u_ada", "role": "Team Manager", "created_at": "2025-01-11T09:00:00.000000Z" },
+      { "user_id": "u_alan", "role": "Team Member", "created_at": "2025-02-02T09:00:00.000000Z" }
+    ],
+    "t_analytics": [
+      { "user_id": "u_grace", "role": "Team Manager", "created_at": "2025-02-02T09:00:00.000000Z" },
+      { "user_id": "u_kat", "role": "Team Member", "created_at": "2026-11-01T11:05:00.000000Z" }
+    ]
+  },
+  "team_groups": {
+    "t_data_eng": [
+      { "id": "g_warehouse", "role": "Destination Administrator", "created_at": "2025-01-11T09:00:00.000000Z" },
+      { "id": "g_lake", "role": "Destination Administrator", "created_at": "2025-03-03T09:00:00.000000Z" }
+    ],
+    "t_analytics": [
+      { "id": "g_warehouse", "role": "Destination Reviewer", "created_at": "2025-02-02T09:00:00.000000Z" }
+    ]
+  },
+  "team_connections": {
+    "t_data_eng": [],
+    "t_analytics": [
+      { "id": "c_salesforce", "role": "Connection Collaborator", "created_at": "2025-02-02T09:00:00.000000Z" }
+    ]
+  },
+  "user_groups": {
+    "u_ada": [{ "id": "g_warehouse", "role": "Destination Administrator", "created_at": "2025-01-10T09:00:00.000000Z" }],
+    "u_grace": [{ "id": "g_lake", "role": "Destination Reviewer", "created_at": "2025-03-03T09:00:00.000000Z" }],
+    "u_alan": [],
+    "u_kat": [],
+    "u_svc_ci": [{ "id": "g_warehouse", "role": "Destination Collaborator", "created_at": "2025-06-15T00:00:00.000000Z" }]
+  },
+  "user_connections": {
+    "u_ada": [],
+    "u_grace": [{ "id": "c_hubspot", "role": "Connection Administrator", "created_at": "2025-03-05T09:00:00.000000Z" }],
+    "u_alan": [{ "id": "c_postgres", "role": "Connection Collaborator", "created_at": "2025-04-01T09:00:00.000000Z" }],
+    "u_kat": [],
+    "u_svc_ci": []
+  },
+  "connections": [
+    {
+      "id": "c_salesforce", "group_id": "g_warehouse", "service": "salesforce", "service_version": 1,
+      "schema": "salesforce", "connected_by": "u_ada", "created_at": "2025-01-12T10:00:00.000000Z",
+      "succeeded_at": "2026-11-14T22:05:00.000000Z", "failed_at": null, "paused": false, "pause_after_trial": false,
+      "sync_frequency": 360, "data_delay_threshold": 0, "data_delay_sensitivity": "NORMAL",
+      "daily_sync_time": "02:00", "schedule_type": "auto",
+      "status": {
+        "setup_state": "connected", "schema_status": "ready", "sync_state": "scheduled", "update_state": "on_schedule",
+        "is_historical_sync": false, "rescheduled_for": null, "tasks": [], "warnings": []
+      },
+      "config": { "domain": "acme.my.salesforce.com", "is_sandbox": false, "client_secret": "******", "oauth_token": "abc123-not-masked-upstream" },
+      "networking_method": "Directly", "private_link_id": null, "proxy_agent_id": null, "hybrid_deployment_agent_id": null,
+      "data_checks": false
+    },
+    {
+      "id": "c_postgres", "group_id": "g_warehouse", "service": "postgres_rds", "service_version": 3,
+      "schema": "app_db", "connected_by": "u_ada", "created_at": "2025-04-01T08:00:00.000000Z",
+      "succeeded_at": "2026-11-13T04:00:00.000000Z", "failed_at": "2026-11-14T23:10:00.000000Z", "paused": false, "pause_after_trial": false,
+      "sync_frequency": 15, "data_delay_threshold": 60, "data_delay_sensitivity": "HIGH",
+      "daily_sync_time": null, "schedule_type": "auto",
+      "status": {
+        "setup_state": "connected", "schema_status": "ready", "sync_state": "scheduled", "update_state": "delayed",
+        "is_historical_sync": false, "rescheduled_for": "2026-11-15T00:10:00.000000Z", "tasks": [],
+        "warnings": [{ "code": "replication_slot_lag", "message": "Replication slot lag is above 10 GB", "details": "slot fivetran_slot" }]
+      },
+      "config": { "host": "db.acme.internal", "port": 5432, "user": "fivetran", "password": "******", "database": "app", "update_method": "WAL" },
+      "networking_method": "SshTunnel", "private_link_id": null, "proxy_agent_id": null, "hybrid_deployment_agent_id": null,
+      "data_checks": true
+    },
+    {
+      "id": "c_stripe", "group_id": "g_warehouse", "service": "stripe", "service_version": 0,
+      "schema": "stripe", "connected_by": "u_grace", "created_at": "2025-05-20T08:00:00.000000Z",
+      "succeeded_at": "2026-11-01T06:00:00.000000Z", "failed_at": null, "paused": true, "pause_after_trial": false,
+      "sync_frequency": 1440, "data_delay_threshold": 0, "data_delay_sensitivity": "NORMAL",
+      "daily_sync_time": "06:00", "schedule_type": "manual",
+      "status": {
+        "setup_state": "connected", "schema_status": "ready", "sync_state": "paused", "update_state": "on_schedule",
+        "is_historical_sync": false, "rescheduled_for": null, "tasks": [], "warnings": []
+      },
+      "config": { "api_key": "rk_live_should_be_masked" },
+      "networking_method": "Directly", "private_link_id": null, "proxy_agent_id": null, "hybrid_deployment_agent_id": null,
+      "data_checks": false
+    },
+    {
+      "id": "c_hubspot", "group_id": "g_lake", "service": "hubspot", "service_version": 2,
+      "schema": "hubspot", "connected_by": "u_grace", "created_at": "2025-03-05T09:00:00.000000Z",
+      "succeeded_at": null, "failed_at": "2026-11-14T20:00:00.000000Z", "paused": false, "pause_after_trial": false,
+      "sync_frequency": 60, "data_delay_threshold": 0, "data_delay_sensitivity": "NORMAL",
+      "daily_sync_time": null, "schedule_type": "auto",
+      "status": {
+        "setup_state": "broken", "schema_status": "ready", "sync_state": "scheduled", "update_state": "delayed",
+        "is_historical_sync": true, "rescheduled_for": null,
+        "tasks": [{ "code": "reconnect", "message": "Reauthorize HubSpot", "details": "OAuth token was revoked" }],
+        "warnings": []
+      },
+      "config": { "auth_type": "OAUTH", "refresh_token": "******" },
+      "networking_method": "Directly", "private_link_id": null, "proxy_agent_id": null, "hybrid_deployment_agent_id": null,
+      "data_checks": false
+    },
+    {
+      "id": "c_sheets", "group_id": "g_lake", "service": "google_sheets", "service_version": 1,
+      "schema": "finance_sheets", "connected_by": "u_ada", "created_at": "2026-02-01T09:00:00.000000Z",
+      "succeeded_at": "2026-11-14T23:30:00.000000Z", "failed_at": null, "paused": false, "pause_after_trial": false,
+      "sync_frequency": 60, "data_delay_threshold": 0, "data_delay_sensitivity": "LOW",
+      "daily_sync_time": null, "schedule_type": "auto",
+      "status": {
+        "setup_state": "connected", "schema_status": "ready", "sync_state": "syncing", "update_state": "on_schedule",
+        "is_historical_sync": false, "rescheduled_for": null, "tasks": [], "warnings": []
+      },
+      "config": { "sheet_id": "1AbC", "named_range": "budget" },
+      "networking_method": "Directly", "private_link_id": null, "proxy_agent_id": null, "hybrid_deployment_agent_id": "hda_onprem",
+      "data_checks": false
+    }
+  ],
+  "schemas": {
+    "c_salesforce": {
+      "enable_new_by_default": true,
+      "schema_change_handling": "ALLOW_ALL",
+      "schemas": {
+        "salesforce": {
+          "name_in_destination": "salesforce",
+          "enabled": true,
+          "tables": {
+            "account": {
+              "name_in_destination": "account", "enabled": true, "sync_mode": "SOFT_DELETE",
+              "supports_columns_config": true, "enabled_patch_settings": { "allowed": true },
+              "columns": {
+                "id": { "name_in_destination": "id", "enabled": true, "hashed": false, "is_primary_key": true, "enabled_patch_settings": { "allowed": false, "reason_code": "SYSTEM_COLUMN", "reason": "Primary key" } },
+                "name": { "name_in_destination": "name", "enabled": true, "hashed": false, "is_primary_key": false, "enabled_patch_settings": { "allowed": true } },
+                "phone": { "name_in_destination": "phone", "enabled": true, "hashed": true, "is_primary_key": false, "enabled_patch_settings": { "allowed": true } }
+              }
+            },
+            "contact": {
+              "name_in_destination": "contact", "enabled": true, "sync_mode": "HISTORY",
+              "supports_columns_config": true, "enabled_patch_settings": { "allowed": true },
+              "columns": {
+                "id": { "name_in_destination": "id", "enabled": true, "hashed": false, "is_primary_key": true, "enabled_patch_settings": { "allowed": false, "reason_code": "SYSTEM_COLUMN", "reason": "Primary key" } },
+                "email": { "name_in_destination": "email", "enabled": true, "hashed": true, "is_primary_key": false, "enabled_patch_settings": { "allowed": true } },
+                "ssn__c": { "name_in_destination": "ssn_c", "enabled": false, "hashed": false, "is_primary_key": false, "enabled_patch_settings": { "allowed": true } }
+              }
+            },
+            "login_history": {
+              "name_in_destination": "login_history", "enabled": false, "sync_mode": "SOFT_DELETE",
+              "supports_columns_config": true, "enabled_patch_settings": { "allowed": true }
+            }
+          }
+        }
+      }
+    },
+    "c_postgres": {
+      "enable_new_by_default": false,
+      "schema_change_handling": "BLOCK_ALL",
+      "schemas": {
+        "public": {
+          "name_in_destination": "app_db_public",
+          "enabled": true,
+          "tables": {
+            "orders": {
+              "name_in_destination": "orders", "enabled": true, "sync_mode": "LIVE",
+              "supports_columns_config": true, "enabled_patch_settings": { "allowed": true },
+              "columns": {
+                "order_id": { "name_in_destination": "order_id", "enabled": true, "hashed": false, "is_primary_key": true, "enabled_patch_settings": { "allowed": false, "reason_code": "SYSTEM_COLUMN", "reason": "Primary key" } },
+                "card_number": { "name_in_destination": "card_number", "enabled": false, "hashed": false, "is_primary_key": false, "enabled_patch_settings": { "allowed": true } }
+              }
+            },
+            "users": {
+              "name_in_destination": "users", "enabled": true, "sync_mode": "SOFT_DELETE",
+              "supports_columns_config": true, "enabled_patch_settings": { "allowed": true },
+              "columns": {
+                "user_id": { "name_in_destination": "user_id", "enabled": true, "hashed": false, "is_primary_key": true, "enabled_patch_settings": { "allowed": false, "reason_code": "SYSTEM_COLUMN", "reason": "Primary key" } },
+                "email": { "name_in_destination": "email", "enabled": true, "hashed": true, "is_primary_key": false, "enabled_patch_settings": { "allowed": true } }
+              }
+            }
+          }
+        },
+        "audit": {
+          "name_in_destination": "app_db_audit",
+          "enabled": false,
+          "tables": {
+            "events": {
+              "name_in_destination": "events", "enabled": false, "sync_mode": "SOFT_DELETE",
+              "supports_columns_config": true, "enabled_patch_settings": { "allowed": true }
+            }
+          }
+        }
+      }
+    },
+    "c_stripe": {
+      "enable_new_by_default": true,
+      "schema_change_handling": "ALLOW_COLUMNS",
+      "schemas": {
+        "stripe": {
+          "name_in_destination": "stripe",
+          "enabled": true,
+          "tables": {
+            "charge": {
+              "name_in_destination": "charge", "enabled": true, "sync_mode": "SOFT_DELETE",
+              "supports_columns_config": false,
+              "enabled_patch_settings": { "allowed": false, "reason_code": "SYSTEM_TABLE", "reason": "Required for the connector" }
+            }
+          }
+        }
+      }
+    },
+    "c_hubspot": {
+      "enable_new_by_default": true,
+      "schema_change_handling": "ALLOW_ALL",
+      "schemas": {}
+    },
+    "c_sheets": {
+      "enable_new_by_default": true,
+      "schema_change_handling": "ALLOW_ALL",
+      "schemas": {
+        "finance_sheets": {
+          "name_in_destination": "finance_sheets",
+          "enabled": true,
+          "tables": {
+            "budget": { "name_in_destination": "budget", "enabled": true, "sync_mode": "SOFT_DELETE", "supports_columns_config": false, "enabled_patch_settings": { "allowed": true } }
+          }
+        }
+      }
+    }
+  },
+  "state": {
+    "c_salesforce": { "state": { "cursor": "2026-11-14T22:00:00Z", "objects": { "account": "2026-11-14T22:00:00Z" } } },
+    "c_postgres": { "state": { "lsn": "0/16B3748", "slot": "fivetran_slot" } },
+    "c_stripe": { "state": { "events_cursor": "evt_123" } },
+    "c_hubspot": { "state": null },
+    "c_sheets": { "state": {} }
+  },
+  "sync_history": {
+    "c_salesforce": [
+      { "sync_id": "sf-s1", "start_offset_minutes": 30, "end_offset_minutes": 22, "status": "COMPLETED", "stages": { "extract": { "volume": 1200 }, "process": { "volume": 1200 }, "load": { "volume": 1180 } } },
+      { "sync_id": "sf-s2", "start_offset_minutes": 390, "end_offset_minutes": 380, "status": "COMPLETED", "stages": { "extract": { "volume": 900 }, "process": { "volume": 900 }, "load": { "volume": 900 } } },
+      { "sync_id": "sf-s3", "start_offset_minutes": 750, "end_offset_minutes": 745, "status": "COMPLETED", "stages": { "extract": { "volume": 10 }, "process": { "volume": 10 }, "load": { "volume": 10 } } },
+      { "sync_id": "sf-s4", "start_offset_minutes": 2880, "end_offset_minutes": 2850, "status": "FAILURE", "reason": "Salesforce API limit exceeded", "stages": { "extract": { "volume": 0 }, "process": { "volume": 0 }, "load": { "volume": 0 } } },
+      { "sync_id": "sf-old", "start_offset_minutes": 15000, "end_offset_minutes": 14990, "status": "COMPLETED", "stages": { "extract": { "volume": 5 }, "process": { "volume": 5 }, "load": { "volume": 5 } } }
+    ],
+    "c_postgres": [
+      { "sync_id": "pg-s1", "start_offset_minutes": 50, "end_offset_minutes": 45, "status": "FAILURE", "reason": "Replication slot is missing", "stages": { "extract": { "volume": 0 }, "process": { "volume": 0 }, "load": { "volume": 0 } } },
+      { "sync_id": "pg-s2", "start_offset_minutes": 65, "end_offset_minutes": 60, "status": "CANCELED", "reason": "Canceled by user", "stages": { "extract": { "volume": 40 }, "process": { "volume": 0 }, "load": { "volume": 0 } } },
+      { "sync_id": "pg-s3", "start_offset_minutes": 80, "end_offset_minutes": 75, "status": "INCOMPLETE", "reason": "Sync was interrupted", "stages": { "extract": { "volume": 500 }, "process": { "volume": 500 }, "load": { "volume": 250 } } },
+      { "sync_id": "pg-s4", "start_offset_minutes": 95, "end_offset_minutes": 94, "status": "RESCHEDULED", "reason": "Source rate limit", "stages": { "extract": { "volume": 0 }, "process": { "volume": 0 }, "load": { "volume": 0 } } },
+      { "sync_id": "pg-s5", "start_offset_minutes": 2000, "end_offset_minutes": 1990, "status": "COMPLETED", "stages": { "extract": { "volume": 20000 }, "process": { "volume": 20000 }, "load": { "volume": 20000 } } }
+    ],
+    "c_stripe": [
+      { "sync_id": "st-s1", "start_offset_minutes": 3000, "end_offset_minutes": 2995, "status": "PAUSED", "reason": "Connection paused", "stages": { "extract": { "volume": 3 }, "process": { "volume": 3 }, "load": { "volume": 3 } } }
+    ],
+    "c_hubspot": [],
+    "c_sheets": [
+      { "sync_id": "gs-s1", "start_offset_minutes": 5, "end_offset_minutes": null, "status": "INCOMPLETE", "stages": { "extract": { "volume": 12 }, "process": { "volume": 0 }, "load": { "volume": 0 } } },
+      { "sync_id": "gs-s2", "start_offset_minutes": 70, "end_offset_minutes": 69, "status": "COMPLETED", "stages": { "extract": { "volume": 12 }, "process": { "volume": 12 }, "load": { "volume": 12 } } }
+    ]
+  },
+  "errors": {
+    "c_salesforce": [],
+    "c_postgres": [
+      { "type": "SYNC_ERROR", "title": "Replication slot missing", "reason": "The replication slot fivetran_slot does not exist", "message": "Recreate the replication slot and re-sync", "created_at": "2026-11-14T23:10:00.000000Z" }
+    ],
+    "c_stripe": [],
+    "c_hubspot": [
+      { "type": "AUTH_ERROR", "title": "OAuth token revoked", "reason": "HubSpot returned 401", "message": "Reauthorize the connection", "created_at": "2026-11-14T20:00:00.000000Z" }
+    ],
+    "c_sheets": []
+  },
+  "warnings": {
+    "c_salesforce": [
+      { "schema": "salesforce", "table": "contact", "warnings": [ { "code": "column_type_change", "message": "Column type changed", "error_message": "birthdate changed from STRING to DATE", "created_at": "2026-11-10T03:00:00.000000Z" } ] }
+    ],
+    "c_postgres": [
+      { "schema": "public", "table": "orders", "warnings": [
+        { "code": "replication_slot_lag", "message": "Replication slot lag is above 10 GB", "error_message": null, "created_at": "2026-11-14T21:00:00.000000Z" },
+        { "code": "missing_primary_key", "message": "Table has no primary key", "error_message": null, "created_at": "2026-11-11T21:00:00.000000Z" }
+      ] }
+    ],
+    "c_stripe": [],
+    "c_hubspot": [],
+    "c_sheets": []
+  },
+  "webhooks": [
+    { "id": "wh_account", "type": "account", "group_id": null, "url": "https://hooks.acme.example/fivetran", "events": ["sync_start", "sync_end"], "active": true, "secret": "******", "created_at": "2025-06-01T00:00:00.000Z", "created_by": "u_ada" },
+    { "id": "wh_lake", "type": "group", "group_id": "g_lake", "url": "https://hooks.acme.example/lake", "events": ["sync_end", "connection_failure"], "active": false, "secret": null, "created_at": "2025-07-01T00:00:00.000Z", "created_by": "u_grace" }
+  ],
+  "hybrid_deployment_agents": [
+    {
+      "id": "hda_onprem", "display_name": "onprem-k8s", "group_id": "g_lake", "version": "1.4.2", "enabled": true, "online": true,
+      "deployment_type": "KUBERNETES", "registered_at": "2025-09-01T00:00:00.000Z", "created_by": "u_ada",
+      "updated_at": "2026-11-01T00:00:00.000Z", "last_used_at": "2026-11-14T23:30:00.000Z",
+      "usage": [ { "schema": "finance_sheets", "service": "google_sheets", "connection_id": "c_sheets" } ]
+    },
+    {
+      "id": "hda_dr", "display_name": "dr-docker", "group_id": "g_warehouse", "version": "1.3.0", "enabled": false, "online": false,
+      "deployment_type": "DOCKER", "registered_at": "2025-10-01T00:00:00.000Z", "created_by": "u_ada",
+      "updated_at": "2025-10-01T00:00:00.000Z", "last_used_at": null, "usage": []
+    }
+  ],
+  "transformations": [
+    {
+      "id": "tr_dbt_daily", "status": "SUCCEEDED", "type": "DBT_CORE", "paused": false,
+      "created_at": "2025-08-01T00:00:00.000Z", "created_by_id": "u_ada",
+      "last_started_at": "2026-11-14T02:00:00.000Z", "last_ended_at": "2026-11-14T02:12:30.000Z",
+      "output_model_names": ["fct_orders", "dim_customers"],
+      "schedule": { "schedule_type": "TIME_OF_DAY", "time_of_day": "02:00", "days_of_week": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"], "cron": null, "interval": null, "connection_ids": [], "transformation_ids": [], "smart_syncing": false },
+      "transformation_config": { "project_id": "tp_main", "name": "daily_build", "steps": [ { "name": "build", "command": "dbt build" } ] }
+    },
+    {
+      "id": "tr_qs_salesforce", "status": "FAILED", "type": "QUICKSTART", "paused": false,
+      "created_at": "2025-09-01T00:00:00.000Z", "created_by_id": "u_grace",
+      "last_started_at": "2026-11-14T22:06:00.000Z", "last_ended_at": "2026-11-14T22:07:10.000Z",
+      "output_model_names": ["salesforce__opportunity_enhanced"],
+      "schedule": { "schedule_type": "INTEGRATED", "time_of_day": null, "days_of_week": null, "cron": null, "interval": null, "connection_ids": ["c_salesforce"], "transformation_ids": [], "smart_syncing": true },
+      "transformation_config": { "package_name": "salesforce", "connection_ids": ["c_salesforce"], "excluded_models": [] }
+    }
+  ],
+  "transformation_projects": [
+    { "id": "tp_main", "type": "DBT_CORE", "created_at": "2025-07-15T00:00:00.000Z", "created_by_id": "u_ada", "group_id": "g_warehouse" }
+  ],
+  "roles": [
+    { "name": "Account Administrator", "description": "Full access to the account", "scope": ["ACCOUNT"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Account Reviewer", "description": "Read-only access to the account", "scope": ["ACCOUNT"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Destination Administrator", "description": "Manage a destination and its connections", "scope": ["DESTINATION"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Destination Reviewer", "description": "Read-only access to a destination", "scope": ["DESTINATION"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Destination Collaborator", "description": "Edit a destination's connections", "scope": ["DESTINATION"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Connection Administrator", "description": "Manage a connection", "scope": ["CONNECTOR"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Connection Collaborator", "description": "Edit a connection", "scope": ["CONNECTOR"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Team Manager", "description": "Manage a team", "scope": ["TEAM"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Team Member", "description": "Member of a team", "scope": ["TEAM"], "is_custom": false, "is_deprecated": false, "replacement_role_name": null },
+    { "name": "Legacy Billing", "description": "Billing (deprecated)", "scope": ["ACCOUNT"], "is_custom": true, "is_deprecated": true, "replacement_role_name": "Account Billing" }
+  ],
+  "system_keys": [
+    {
+      "id": "sk_terraform", "name": "terraform", "key": "Zm9vYmFy", "secret": "******",
+      "permissions": [ { "resource_type": "CONNECTOR", "access_level": "MANAGE", "resource_filter": { "ids": [], "group_ids": ["g_warehouse"] } },
+                       { "resource_type": "ACCOUNT", "access_level": "READ", "resource_filter": null } ],
+      "created_at": "2025-05-01T00:00:00.000Z", "updated_at": "2025-05-01T00:00:00.000Z", "expired_at": "2027-05-01T00:00:00.000Z", "last_used_at": "2026-11-14T10:00:00.000Z"
+    }
+  ],
+  "connector_types": [
+    { "id": "salesforce", "name": "Salesforce", "type": "Sales", "description": "Salesforce CRM", "icon_url": "https://fivetran.com/integrations/salesforce/resources/salesforce.svg", "link_to_docs": "https://fivetran.com/docs/connectors/applications/salesforce", "connector_class": "standard", "service_status": "general_availability", "service_status_updated_at": "2020-01-01T00:00:00.000Z", "supports_schema_reload": true, "supported_features": [ { "id": "COLUMN_HASHING" }, { "id": "HISTORY" }, { "id": "CAPTURE_DELETES" } ] },
+    { "id": "postgres_rds", "name": "Amazon RDS for PostgreSQL", "type": "Database", "description": "PostgreSQL on Amazon RDS", "icon_url": "https://fivetran.com/integrations/postgres/resources/postgres.svg", "link_to_docs": "https://fivetran.com/docs/connectors/databases/postgresql/rds-setup-guide", "connector_class": "standard", "service_status": "general_availability", "service_status_updated_at": "2020-01-01T00:00:00.000Z", "supports_schema_reload": true, "supported_features": [ { "id": "COLUMN_HASHING" }, { "id": "PRIVATE_NETWORKING" } ] },
+    { "id": "stripe", "name": "Stripe", "type": "Finance", "description": "Stripe payments", "icon_url": "https://fivetran.com/integrations/stripe/resources/stripe.svg", "link_to_docs": "https://fivetran.com/docs/connectors/applications/stripe", "connector_class": "standard", "service_status": "general_availability", "service_status_updated_at": "2020-01-01T00:00:00.000Z", "supports_schema_reload": false, "supported_features": [] },
+    { "id": "hubspot", "name": "HubSpot", "type": "Marketing", "description": "HubSpot marketing and CRM", "icon_url": "https://fivetran.com/integrations/hubspot/resources/hubspot.svg", "link_to_docs": "https://fivetran.com/docs/connectors/applications/hubspot", "connector_class": "standard", "service_status": "general_availability", "service_status_updated_at": "2020-01-01T00:00:00.000Z", "supports_schema_reload": true, "supported_features": [ { "id": "HISTORY" } ] },
+    { "id": "google_sheets", "name": "Google Sheets", "type": "File", "description": "Google Sheets ranges", "icon_url": "https://fivetran.com/integrations/google_sheets/resources/google_sheets.svg", "link_to_docs": "https://fivetran.com/docs/connectors/files/google-sheets", "connector_class": "lite", "service_status": "beta", "service_status_updated_at": "2024-01-01T00:00:00.000Z", "supports_schema_reload": false, "supported_features": [] }
+  ],
+  "log_services": [
+    { "id": "log_datadog", "service": "datadog", "enabled": true, "status": { "setup_state": "connected", "tasks": [] } }
+  ],
+  "private_links": [
+    { "id": "pl_gcp", "name": "lake-psc", "region": "GCP_US_EAST4", "service": "SOURCE_GCP", "state": "OK", "host": "lake.psc.internal", "account_id": "acc_acme", "cloud_provider": "GCP", "created_at": "2025-03-01T00:00:00.000Z", "created_by": "u_ada", "state_summary": null }
+  ],
+  "proxy_agents": [
+    { "id": "pa_dc1", "account_id": "acc_acme", "display_name": "dc1-proxy", "region": "AWS_US_EAST_1", "registered_at": "2025-04-01T00:00:00.000Z", "created_by": "u_ada", "version": "2.1.0", "status": "CONNECTED", "connector_count": 1, "destination_count": 0 }
+  ]
+}
