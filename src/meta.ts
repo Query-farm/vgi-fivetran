@@ -139,6 +139,9 @@ export const SCHEMA_DOC_LLM =
   "(= or IN) to read only those parents, otherwise every parent is listed first. syncs covers " +
   "the last 7 days only. All tables need a `fivetran` secret.";
 
+export const SCHEMA_COMMENT =
+  "Fivetran-native connections, syncs, destinations, transformations and access, read-only.";
+
 export const SCHEMA_DOC_MD =
   "## main\n\n" +
   "Fivetran collections: connections and their configuration, sync history, destinations, " +
@@ -151,6 +154,8 @@ export const UNIFIED_DOC_LLM =
   "(Airflow, Dagster, Prefect, Temporal, Databricks, dbt, GitHub, Fivetran) exposes, so their runs " +
   "UNION ALL into one table. Fivetran contributes its syncs (last 7 days). There is no " +
   "unified.task_runs: Fivetran syncs have extract/process/load volumes but no timed sub-tasks.";
+
+export const UNIFIED_COMMENT = "Fivetran syncs in the shared cross-orchestrator runs shape.";
 
 export const UNIFIED_DOC_MD =
   "## unified\n\n" +
