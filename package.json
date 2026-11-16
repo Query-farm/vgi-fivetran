@@ -1,5 +1,5 @@
 {
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "A VGI worker for DuckDB, generated from the Query.Farm VGI starter template.",
